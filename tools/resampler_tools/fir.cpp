@@ -72,6 +72,7 @@ static void usage(char* name) {
             " [-f {float|fixed|fixed16}] [-b beta] [-v dBFS] -p M/N\n"
             "    -h    this help message\n"
             "    -d    debug, print comma-separated coefficient table\n"
+	    "	 -D    generate extra declorations\n"
             "    -p    generate poly-phase filter coefficients, with sample increment M/N\n"
             "    -s    sample rate (48000)\n"
             "    -c    cut-off frequency (20478)\n"
@@ -97,7 +98,8 @@ int main(int argc, char** argv)
     double Fs = 48000;
     double Fc = 20478;
     double atten = 1;
-    int format = 0;
+    int format = 0;	// 0=fixed, 1=float
+    bool declorations = false;
 
     // in order to keep the errors associated with the linear
     // interpolation of the coefficients below the quantization error
@@ -163,6 +165,9 @@ int main(int argc, char** argv)
             case 'd':
                 debug = true;
                 break;
+	    case 'D':
+		declorations = true;
+		break;
             case 'p':
                 if (sscanf(optarg, "%u/%u", &polyM, &polyN) != 2) {
                     usage(argv[0]);
@@ -230,19 +235,21 @@ int main(int argc, char** argv)
             printf("%s ", argv[i]);
         }
         printf("\n");
-        if (!polyphase) {
-            printf("const int32_t RESAMPLE_FIR_SIZE           = %d;\n", N);
-            printf("const int32_t RESAMPLE_FIR_INT_PHASES     = %d;\n", M);
-            printf("const int32_t RESAMPLE_FIR_NUM_COEF       = %d;\n", nzc);
-        } else {
-            printf("const int32_t RESAMPLE_FIR_SIZE           = %d;\n", 2*nzc*polyN);
-            printf("const int32_t RESAMPLE_FIR_NUM_COEF       = %d;\n", 2*nzc);
+	if (declorations) {
+           if (!polyphase) {
+               printf("const int32_t RESAMPLE_FIR_SIZE           = %d;\n", N);
+               printf("const int32_t RESAMPLE_FIR_INT_PHASES     = %d;\n", M);
+               printf("const int32_t RESAMPLE_FIR_NUM_COEF       = %d;\n", nzc);
+            } else {
+               printf("const int32_t RESAMPLE_FIR_SIZE           = %d;\n", 2*nzc*polyN);
+               printf("const int32_t RESAMPLE_FIR_NUM_COEF       = %d;\n", 2*nzc);
+            }
+            if (!format) {
+               printf("const int32_t RESAMPLE_FIR_COEF_BITS      = %d;\n", nc);
+            }
+            printf("\n");
+            printf("static %s resampleFIR[] = {", !format ? "int32_t" : "float");
         }
-        if (!format) {
-            printf("const int32_t RESAMPLE_FIR_COEF_BITS      = %d;\n", nc);
-        }
-        printf("\n");
-        printf("static %s resampleFIR[] = {", !format ? "int32_t" : "float");
     }
 
     if (!polyphase) {
@@ -267,7 +274,10 @@ int main(int argc, char** argv)
                 } else {
                     printf("%.9g%s ", y, debug ? "," : "f,");
                 }
-            }
+		if (j != nzc-1) {
+		    printf(" ");
+		}            
+           }
         }
     } else {
         for (unsigned int j=0 ; j<polyN ; j++) {
@@ -291,15 +301,14 @@ int main(int argc, char** argv)
                     printf("%.9g%s", y, debug ? "" : "f");
                 }
 
-                if (debug && (i==nzc-1)) {
-                } else {
+                if (i != nzc-1) {
                     printf(", ");
                 }
             }
         }
     }
 
-    if (!debug) {
+    if (!debug && declorations) {
         printf("\n};");
     }
     printf("\n");
