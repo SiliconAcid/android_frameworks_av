@@ -4666,7 +4666,7 @@ void ACodec::UninitializedState::stateEntered() {
     ALOGV("Now uninitialized");
 
     if (mDeathNotifier != NULL) {
-        mCodec->mOMX->asBinder()->unlinkToDeath(mDeathNotifier);
+        IInterface::asBinder(mCodec->mOMX)->unlinkToDeath(mDeathNotifier);
         mDeathNotifier.clear();
     }
 
